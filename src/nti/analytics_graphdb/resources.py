@@ -43,7 +43,7 @@ def _add_view_relationship(db, oid, username, params=None):
 
 def _process_view_event(db, event):
 	if 	IVideoRecordedEvent.providedBy(event) and \
-		(not event.duration or event.duration <= 0): # skip 0 events
+		(not event.video_end_time or not event.duration): # skip 0 events
 		return
 	params = {}
 	obj = event.object
