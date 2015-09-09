@@ -13,6 +13,7 @@ import six
 
 from zope import component
 
+from nti.analytics.recorded import IVideoRecordedEvent
 from nti.analytics.recorded import IVideoSkipRecordedEvent
 from nti.analytics.recorded import IObjectViewedRecordedEvent
 
@@ -41,6 +42,8 @@ def _add_view_relationship(db, oid, username, params=None):
 		logger.debug("Viewed relationship %s created", result)
 
 def _process_view_event(db, event):
+	if IVideoRecordedEvent.providedBy(event) and event.duration <= 0: # skip 0 events
+		return
 	params = {}
 	obj = event.object
 	user = get_user(event.user)
