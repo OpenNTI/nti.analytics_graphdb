@@ -16,6 +16,7 @@ from nti.analytics.recorded import IObjectViewedRecordedEvent
 from nti.graphdb import create_job
 from nti.graphdb import get_graph_db
 from nti.graphdb import get_job_queue
+from nti.graphdb.common import get_ntiid
 from nti.graphdb.relationships import Viewed
 
 from nti.externalization.oids import to_external_ntiid_oid
@@ -28,7 +29,6 @@ from .utils import get_latlong
 from . import primitives_types
 
 def _add_view_relationship(db, oid, username, params=None):
-	#from IPython.core.debugger import Tracer; Tracer()()
 	params = params or {}
 	user = get_user(username)
 	obj = find_object_with_ntiid(oid)
@@ -38,9 +38,10 @@ def _add_view_relationship(db, oid, username, params=None):
 
 def _process_view_event(db, event):
 	params = {}
+	obj = event.object
 	user = get_user(event.user)
 	sessionId = event.sessionId
-	oid = to_external_ntiid_oid(event.object)
+	oid = get_ntiid(obj) or to_external_ntiid_oid(event.object)
 
 	# latlong
 	latlong = get_latlong(sessionId) if sessionId is not None else None
@@ -73,7 +74,6 @@ def _process_view_event(db, event):
 
 @component.adapter(IObjectViewedRecordedEvent)
 def _object_viewed(event):
-	#from IPython.core.debugger import Tracer; Tracer()()
 	db = get_graph_db()
 	if db is not None:
 		_process_view_event(db, event)

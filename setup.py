@@ -5,8 +5,7 @@ VERSION = '0.0.0'
 
 entry_points = {
 	'z3c.autoinclude.plugin': [
-		'target = nti.graphdb',
-		'target = nti.analytics',
+		'target = nti.analytics_graphdb',
 	],
 }
 
