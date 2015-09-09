@@ -9,8 +9,11 @@ __docformat__ = "restructuredtext en"
 
 logger = __import__('logging').getLogger(__name__)
 
+import six
+
 from zope import component
 
+from nti.analytics.recorded import IVideoSkipRecordedEvent
 from nti.analytics.recorded import IObjectViewedRecordedEvent
 
 from nti.graphdb import create_job
@@ -33,7 +36,8 @@ def _add_view_relationship(db, oid, username, params=None):
 	user = get_user(username)
 	obj = find_object_with_ntiid(oid)
 	if user is not None and obj is not None:
-		result = db.create_relationship(user, obj, Viewed(), properties=params)
+		result = db.create_relationship(user, obj, Viewed(),
+										unique=False, properties=params)
 		logger.debug("Viewed relationship %s created", result)
 
 def _process_view_event(db, event):
@@ -41,7 +45,14 @@ def _process_view_event(db, event):
 	obj = event.object
 	user = get_user(event.user)
 	sessionId = event.sessionId
-	oid = get_ntiid(obj) or to_external_ntiid_oid(event.object)
+	if isinstance(obj, six.string_types): # ntiid
+		oid = obj
+	else:
+		oid = get_ntiid(obj) or to_external_ntiid_oid(event.object)
+		
+	if oid is None:
+		logger.warn("Could not get OID for event %s", event)
+		return
 
 	# latlong
 	latlong = get_latlong(sessionId) if sessionId is not None else None
@@ -75,5 +86,5 @@ def _process_view_event(db, event):
 @component.adapter(IObjectViewedRecordedEvent)
 def _object_viewed(event):
 	db = get_graph_db()
-	if db is not None:
+	if db is not None and not IVideoSkipRecordedEvent.providedBy(event):
 		_process_view_event(db, event)
