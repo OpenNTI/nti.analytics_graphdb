@@ -28,6 +28,7 @@ from .utils import get_latlong
 from . import primitives_types
 
 def _add_view_relationship(db, oid, username, params=None):
+	#from IPython.core.debugger import Tracer; Tracer()()
 	params = params or {}
 	user = get_user(username)
 	obj = find_object_with_ntiid(oid)
@@ -72,6 +73,7 @@ def _process_view_event(db, event):
 
 @component.adapter(IObjectViewedRecordedEvent)
 def _object_viewed(event):
+	#from IPython.core.debugger import Tracer; Tracer()()
 	db = get_graph_db()
 	if db is not None:
 		_process_view_event(db, event)
