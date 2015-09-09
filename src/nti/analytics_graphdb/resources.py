@@ -91,6 +91,5 @@ def _process_view_event(db, event):
 @component.adapter(IObjectViewedRecordedEvent)
 def _object_viewed(event):
 	db = get_graph_db()
-	if 	db is not None and not IVideoSkipRecordedEvent.providedBy(event) and \
-		event.duration:  # skip 0 events
+	if db is not None and not IVideoSkipRecordedEvent.providedBy(event):
 		_process_view_event(db, event)
