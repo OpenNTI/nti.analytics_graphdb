@@ -42,7 +42,8 @@ def _add_view_relationship(db, oid, username, params=None):
 		logger.debug("Viewed relationship %s created", result)
 
 def _process_view_event(db, event):
-	if IVideoRecordedEvent.providedBy(event) and event.duration <= 0: # skip 0 events
+	if 	IVideoRecordedEvent.providedBy(event) and \
+		(not event.duration or event.duration <= 0): # skip 0 events
 		return
 	params = {}
 	obj = event.object
