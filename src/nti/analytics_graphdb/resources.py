@@ -16,8 +16,11 @@ from nti.analytics.recorded import IObjectViewedRecordedEvent
 from nti.graphdb import create_job
 from nti.graphdb import get_graph_db
 from nti.graphdb import get_job_queue
+from nti.graphdb.relationships import Viewed
 
 from nti.externalization.oids import to_external_ntiid_oid
+
+from nti.ntiids.ntiids import find_object_with_ntiid
 
 from .utils import get_user
 from .utils import get_latlong
@@ -25,7 +28,12 @@ from .utils import get_latlong
 from . import primitives_types
 
 def _add_view_relationship(db, oid, username, params=None):
-	pass
+	params = params or {}
+	user = get_user(username)
+	obj = find_object_with_ntiid(oid)
+	if user is not None and obj is not None:
+		result = db.create_relationship(user, obj, Viewed(), properties=params)
+		logger.debug("Viewed relationship %s created", result)
 
 def _process_view_event(db, event):
 	params = {}
