@@ -14,44 +14,56 @@ from zope import component
 from nti.analytics.recorded import IObjectViewedRecordedEvent
 
 from nti.graphdb import create_job
+from nti.graphdb import get_graph_db
 from nti.graphdb import get_job_queue
+
+from nti.externalization.oids import to_external_ntiid_oid
 
 from .utils import get_user
 from .utils import get_latlong
 
-def _process_view_event(app, username, oid, params=None, event_time=None):
+from . import primitives_types
+
+def _add_view_relationship(db, oid, username, params=None):
 	pass
 
-@component.adapter(IObjectViewedRecordedEvent)
-def _object_viewed(event):
+def _process_view_event(db, event):
 	params = {}
-	oid = None
 	user = get_user(event.user)
 	sessionId = event.sessionId
-#
+	oid = to_external_ntiid_oid(event.object)
+
 	# latlong
 	latlong = get_latlong(sessionId) if sessionId is not None else None
 	if latlong:
-		params["pio_latlng"] = ",".join(latlong)
-#
-#	 # handle context
-#	 context = getattr(event, 'context', None)
-#	 if not isinstance(context, primitives_types):
-#		 context = IOID(context, None)
-#	 if context is not None:
-#		 params['context'] = str(context)
+		params["latlong"] = ",".join(latlong)
+
+	# context
+	context = getattr(event, 'context', None)
+	if not isinstance(context, primitives_types):
+		context = to_external_ntiid_oid(context) if context is not None else None
+	if context is not None:
+		params['context'] = str(context)
 
 	# event time
 	event_time = getattr(event, 'timestamp', None)
+	if event_time:
+		params['event_time'] = event_time
 
-	# add event properties
+	# event properties
 	for name in ('duration', 'context_path', 'video_end_time',
-				   'with_transcript', 'video_start_time'):
+				 'with_transcript', 'video_start_time'):
 		value = getattr(event, name, None)
 		if value is not None:
 			params[name] = str(value)
 
 	queue = get_job_queue()
-	job = create_job(_process_view_event, username=user.username, oid=oid,
-					 params=params, event_time=event_time)
+	job = create_job(_add_view_relationship, db=db, username=user.username,
+					 oid=oid, params=params)
 	queue.put(job)
+
+@component.adapter(IObjectViewedRecordedEvent)
+def _object_viewed(event):
+	db = get_graph_db()
+	if db is not None:
+		_process_view_event(db, event)

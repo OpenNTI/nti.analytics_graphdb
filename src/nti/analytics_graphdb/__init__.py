@@ -8,3 +8,8 @@ from __future__ import print_function, unicode_literals, absolute_import, divisi
 __docformat__ = "restructuredtext en"
 
 logger = __import__('logging').getLogger(__name__)
+
+import six
+import numbers
+
+primitives_types = six.string_types + (numbers.Number, bool)
