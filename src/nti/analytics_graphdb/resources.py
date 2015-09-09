@@ -42,8 +42,9 @@ def _add_view_relationship(db, oid, username, params=None):
 		logger.debug("Viewed relationship %s created", result)
 
 def _process_view_event(db, event):
-	if 	IVideoRecordedEvent.providedBy(event) and \
-		(not event.video_end_time or not event.duration): # skip 0 events
+	# skip 0 events
+	if 	not event.duration or \
+		(IVideoRecordedEvent.providedBy(event) and not event.video_end_time): 
 		return
 	params = {}
 	obj = event.object
@@ -90,5 +91,6 @@ def _process_view_event(db, event):
 @component.adapter(IObjectViewedRecordedEvent)
 def _object_viewed(event):
 	db = get_graph_db()
-	if db is not None and not IVideoSkipRecordedEvent.providedBy(event):
+	if 	db is not None and not IVideoSkipRecordedEvent.providedBy(event) and \
+		event.duration:  # skip 0 events
 		_process_view_event(db, event)
