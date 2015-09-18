@@ -15,6 +15,7 @@ from datetime import datetime
 
 import isodate
 
+from sqlalchemy import and_
 from sqlalchemy import between
 
 from zope import component
@@ -25,6 +26,8 @@ from nti.analytics.database.users import Users
 
 from nti.analytics.database.blogs import BlogsViewed
 from nti.analytics.database.blogs import BlogsCreated
+from nti.analytics.database.boards import TopicsViewed
+from nti.analytics.database.boards import TopicsCreated
 
 from nti.analytics.database.sessions import Sessions
 
@@ -61,7 +64,26 @@ def blog_viewed_data(db, start=None, end=None):
 					outerjoin((Sessions, Sessions.session_id == BlogsViewed.session_id)).\
 					filter(BlogsViewed.blog_id==BlogsCreated.blog_id).\
 					filter(BlogsViewed.user_id==Users.user_id).\
-					filter(between(BlogsViewed.timestamp, start, end))
+					filter(between(BlogsViewed.timestamp, start, end)).\
+					filter(and_(BlogsViewed.time_length is not None, 
+								BlogsViewed.time_length > 0))
+	return query
+
+def topics_viewed_data(db, start=None, end=None):
+	start = to_datetime(start, 0)
+	end = to_datetime(end, int(time.time()))
+	query = db.session.query(TopicsViewed.session_id.label('session_id'),
+							 Users.username.label('username'), 
+							 TopicsCreated.topic_ds_id.label('topic_ds_id'),
+							 TopicsViewed.time_length.label('duration'),
+							 TopicsViewed.context_path.label('context_path'),
+							 TopicsViewed.timestamp.label('timestamp')).\
+					outerjoin((Sessions, Sessions.session_id == TopicsViewed.session_id)).\
+					filter(TopicsViewed.topic_id==TopicsCreated.topic_id).\
+					filter(TopicsViewed.user_id==Users.user_id).\
+					filter(between(TopicsViewed.timestamp, start, end)).\
+					filter(and_(TopicsViewed.time_length is not None, 
+								TopicsViewed.time_length > 0))
 	return query
 
 def process_view_event(db, sessionId, username, oid, params):
@@ -98,7 +120,9 @@ def process_view_event(db, sessionId, username, oid, params):
 			
 def populate_graph_db(gdb, analytics, start=None, end=None):
 	result = 0
-	for row in blog_viewed_data(analytics, start, end):
+	blogs_viewed = blog_viewed_data(analytics, start, end)
+	topics_views = topics_viewed_data(analytics, start, end)
+	for row in topics_views.union(blogs_viewed):
 		sessionId, username, oid, duration = row[:4]
 		if not duration:
 			continue
