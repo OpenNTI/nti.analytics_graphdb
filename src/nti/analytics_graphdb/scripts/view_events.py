@@ -21,7 +21,7 @@ from nti.dataserver.utils.base_script import create_context
 
 from nti.graphdb import get_graph_db
 
-from ..utils.views import populate_graph_db
+from nti.analytics_graphdb.utils.views import populate_graph_db
 
 def _process_args(args):
 	if args.site:
@@ -29,7 +29,6 @@ def _process_args(args):
 
 	graph = get_graph_db()
 	analytics = get_analytics_db()
-
 	count = populate_graph_db(graph, analytics)
 	logger.info('%s count graph job(s) created', count)
 
