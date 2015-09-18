@@ -35,13 +35,17 @@ def get_user(user=None):
 	return user
 get_current_user = get_user
 
-def get_latlong(nti_session=None):
-	nti_session = get_nti_session_id() if nti_session is None else nti_session
-	sid = SessionId.get_id(nti_session)
-	session = get_session_by_id(sid) if sid else None
-	ip_addr = getattr(session, 'ip_addr', None)
+def get_latlong_by_ip(ip_addr=None):
 	match = geolite2.lookup(ip_addr) if ip_addr else None
 	if match is not None:
 		result = match.location or ()
 		return result
 	return None
+
+def get_latlong(nti_session=None):
+	nti_session = get_nti_session_id() if nti_session is None else nti_session
+	sid = SessionId.get_id(nti_session)
+	session = get_session_by_id(sid) if sid else None
+	ip_addr = getattr(session, 'ip_addr', None)
+	result = get_latlong_by_ip(ip_addr)
+	return result

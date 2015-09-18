@@ -71,7 +71,7 @@ def process_view_event(db, sessionId, username, oid, params):
 	
 	if isinstance(oid, (int, long)): 
 		intids = component.getUtility(IIntIds)
-		obj = intids.queryId(oid)
+		obj = intids.queryObject(oid)
 		if obj is not None:
 			oid = get_ntiid(obj) or to_external_ntiid_oid(obj)
 		else:
@@ -98,12 +98,16 @@ def process_view_event(db, sessionId, username, oid, params):
 			
 def populate_graph_db(gdb, analytics, start=None, end=None):
 	result = 0
-	query = blog_viewed_data(analytics, start, end)
-	for t in query.yield_per(100).enable_eagerloads(False):
-		sessionId, username, oid= t[:3]
-		params = {'duration': t[3], 'context_path':t[4],
-				  'event_time':time.mktime(t[5].timetuple()) }
+	for row in blog_viewed_data(analytics, start, end):
+		sessionId, username, oid, duration = row[:4]
+		if not duration:
+			continue
+		
+		params = {'duration': duration,
+				  'event_time':time.mktime(row[5].timetuple()) }
+		if row[4]:
+			params['context_path'] = row[4]
+
 		if process_view_event(gdb, sessionId, username, oid, params):
 			result += 1
 	return result
-
