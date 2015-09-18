@@ -57,7 +57,7 @@ def blog_viewed_data(db, start=None, end=None):
 	end = to_datetime(end, int(time.time()))
 	query = db.session.query(BlogsViewed.session_id.label('session_id'),
 							 Users.username.label('username'), 
-							 BlogsCreated.blog_ds_id.label('blog_ds_id'),
+							 BlogsCreated.blog_ds_id.label('ds_intid'),
 							 BlogsViewed.time_length.label('duration'),
 							 BlogsViewed.context_path.label('context_path'),
 							 BlogsViewed.timestamp.label('timestamp')).\
@@ -74,7 +74,7 @@ def topics_viewed_data(db, start=None, end=None):
 	end = to_datetime(end, int(time.time()))
 	query = db.session.query(TopicsViewed.session_id.label('session_id'),
 							 Users.username.label('username'), 
-							 TopicsCreated.topic_ds_id.label('topic_ds_id'),
+							 TopicsCreated.topic_ds_id.label('ds_intid'),
 							 TopicsViewed.time_length.label('duration'),
 							 TopicsViewed.context_path.label('context_path'),
 							 TopicsViewed.timestamp.label('timestamp')).\
