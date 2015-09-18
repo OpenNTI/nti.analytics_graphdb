@@ -32,7 +32,7 @@ from .utils import get_latlong
 
 from . import primitives_types
 
-def _add_view_relationship(db, oid, username, params=None):
+def add_view_relationship(db, oid, username, params=None):
 	params = params or {}
 	user = get_user(username)
 	obj = find_object_with_ntiid(oid)
@@ -53,7 +53,7 @@ def _process_view_event(db, event):
 	if isinstance(obj, six.string_types): # ntiid
 		oid = obj
 	else:
-		oid = get_ntiid(obj) or to_external_ntiid_oid(event.object)
+		oid = get_ntiid(obj) or to_external_ntiid_oid(obj)
 		
 	if oid is None:
 		logger.warn("Could not get OID for event %s", event)
@@ -84,7 +84,7 @@ def _process_view_event(db, event):
 			params[name] = str(value)
 
 	queue = get_job_queue()
-	job = create_job(_add_view_relationship, db=db, username=user.username,
+	job = create_job(add_view_relationship, db=db, username=user.username,
 					 oid=oid, params=params)
 	queue.put(job)
 
