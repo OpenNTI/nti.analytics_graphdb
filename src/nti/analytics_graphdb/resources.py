@@ -16,6 +16,9 @@ from zope import component
 from nti.analytics.recorded import IVideoRecordedEvent
 from nti.analytics.recorded import IVideoSkipRecordedEvent
 from nti.analytics.recorded import IObjectViewedRecordedEvent
+from nti.analytics.recorded import IProfileViewedRecordedEvent
+from nti.analytics.recorded import IProfileActivityViewedRecordedEvent
+from nti.analytics.recorded import IProfileMembershipViewedRecordedEvent
 
 from nti.graphdb import create_job
 from nti.graphdb import get_graph_db
@@ -82,6 +85,13 @@ def _process_view_event(db, event):
 		value = getattr(event, name, None)
 		if value is not None:
 			params[name] = str(value)
+
+	if IProfileActivityViewedRecordedEvent.providedBy(event):
+		params['profile_view_type'] = 'Activity'
+	elif IProfileMembershipViewedRecordedEvent.providedBy(event):
+		params['profile_view_type'] = 'Membership'
+	elif IProfileViewedRecordedEvent.providedBy(event):
+		params['profile_view_type'] = 'Profile'
 
 	queue = get_job_queue()
 	job = create_job(add_view_relationship, db=db, username=user.username,
