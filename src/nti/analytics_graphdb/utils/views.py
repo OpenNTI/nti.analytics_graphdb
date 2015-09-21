@@ -14,6 +14,7 @@ import time
 from datetime import datetime
 
 import isodate
+from isodate import ISO8601Error
 
 from sqlalchemy import and_
 from sqlalchemy import between
@@ -26,10 +27,15 @@ from nti.analytics.database.users import Users
 
 from nti.analytics.database.blogs import BlogsViewed
 from nti.analytics.database.blogs import BlogsCreated
+from nti.analytics.database.resources import Resources
 from nti.analytics.database.boards import TopicsViewed
 from nti.analytics.database.boards import TopicsCreated
+from nti.analytics.database.resource_views import VideoEvents
+from nti.analytics.database.resource_views import CourseResourceViews
 
 from nti.analytics.database.sessions import Sessions
+
+from nti.dataserver.interfaces import INote
 
 from nti.graphdb import create_job
 from nti.graphdb import get_job_queue
@@ -49,7 +55,11 @@ def to_datetime(value, default=None):
 	elif isinstance(value, (int,float)):
 		value = datetime.fromtimestamp(value)
 	elif isinstance(value, six.string_types):
-		value = isodate.parse_datetime(value)
+		try:
+			value = isodate.parse_datetime(value)
+		except (ISO8601Error, ValueError):
+			value = isodate.parse_date(value)
+			value = datetime.fromordinal(value.toordinal())
 	return value
 
 def blog_viewed_data(db, start=None, end=None):
@@ -66,7 +76,7 @@ def blog_viewed_data(db, start=None, end=None):
 					filter(BlogsViewed.user_id==Users.user_id).\
 					filter(between(BlogsViewed.timestamp, start, end)).\
 					filter(and_(BlogsViewed.time_length is not None, 
-								BlogsViewed.time_length > 0))
+								BlogsViewed.time_length > 0)).distinct()
 	return query
 
 def topics_viewed_data(db, start=None, end=None):
@@ -83,7 +93,43 @@ def topics_viewed_data(db, start=None, end=None):
 					filter(TopicsViewed.user_id==Users.user_id).\
 					filter(between(TopicsViewed.timestamp, start, end)).\
 					filter(and_(TopicsViewed.time_length is not None, 
-								TopicsViewed.time_length > 0))
+								TopicsViewed.time_length > 0)).distinct()
+	return query
+
+def videos_viewed_data(db, start=None, end=None):
+	start = to_datetime(start, 0)
+	end = to_datetime(end, int(time.time()))
+	query = db.session.query(VideoEvents.session_id.label('session_id'),
+							 Users.username.label('username'), 
+							 Resources.resource_ds_id.label('ds_intid'),
+							 VideoEvents.time_length.label('duration'),
+							 VideoEvents.context_path.label('context_path'),
+							 VideoEvents.video_start_time.label('video_start_time'),
+							 VideoEvents.video_end_time.label('video_end_time'),
+							 VideoEvents.with_transcript.label('with_transcript'),
+							 VideoEvents.timestamp.label('timestamp')).\
+					outerjoin((Sessions, Sessions.session_id == VideoEvents.session_id)).\
+					filter(VideoEvents.resource_id==Resources.resource_id).\
+					filter(VideoEvents.user_id==Users.user_id).\
+					filter(VideoEvents.video_event_type=='WATCH').\
+					filter(between(VideoEvents.timestamp, start, end)).\
+					filter(and_(VideoEvents.time_length is not None, 
+								VideoEvents.time_length > 0)).distinct()
+	return query
+
+def course_resources_viewed_data(db, start=None, end=None):
+	start = to_datetime(start, 0)
+	end = to_datetime(end, int(time.time()))
+	query = db.session.query(CourseResourceViews.session_id.label('session_id'),
+							 Users.username.label('username'), 
+							 Resources.resource_ds_id.label('ds_intid'),
+							 CourseResourceViews.time_length.label('duration'),
+							 CourseResourceViews.context_path.label('context_path'),
+							 CourseResourceViews.timestamp.label('timestamp')).\
+					outerjoin((Sessions, Sessions.session_id == CourseResourceViews.session_id)).\
+					filter(CourseResourceViews.resource_id==Resources.resource_id).\
+					filter(CourseResourceViews.user_id==Users.user_id).\
+					filter(between(CourseResourceViews.timestamp, start, end)).distinct()
 	return query
 
 def process_view_event(db, sessionId, username, oid, params):
@@ -120,6 +166,8 @@ def process_view_event(db, sessionId, username, oid, params):
 			
 def populate_graph_db(gdb, analytics, start=None, end=None):
 	result = 0
+	
+	# blogs and topics
 	blogs_viewed = blog_viewed_data(analytics, start, end)
 	topics_views = topics_viewed_data(analytics, start, end)
 	for row in topics_views.union(blogs_viewed):
@@ -134,4 +182,40 @@ def populate_graph_db(gdb, analytics, start=None, end=None):
 
 		if process_view_event(gdb, sessionId, username, oid, params):
 			result += 1
+			
+	# course resources
+	for row in course_resources_viewed_data(analytics, start, end):
+		sessionId, username, oid, duration = row[:4]
+		intids = component.getUtility(IIntIds)
+		obj = intids.queryObject(oid)
+		if obj is None:
+			continue
+		if not duration and not INote.providedBy(obj):
+			continue
+
+		oid = get_ntiid(obj) or to_external_ntiid_oid(obj)
+		params = {'duration': duration or 1,
+				  'event_time':time.mktime(row[5].timetuple()) }
+		if row[4]:
+			params['context_path'] = row[4]
+
+		if process_view_event(gdb, sessionId, username, oid, params):
+			result += 1
+	
+	# videos
+	for row in videos_viewed_data(analytics, start, end):
+		sessionId, username, oid, duration = row[:4]
+		params = {'duration': duration,
+				  'event_time':time.mktime(row[5].timetuple()) }
+		if row[4]:
+			params['context_path'] = row[4]
+		if row[5]:
+			params['video_start_time'] = row[5]
+		if row[6]:
+			params['video_end_time'] = row[6]
+		params['with_transcript'] = row[7] or False
+		
+		if process_view_event(gdb, sessionId, username, oid, params):
+			result += 1
+
 	return result
