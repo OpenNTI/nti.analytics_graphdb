@@ -24,12 +24,10 @@ from nti.graphdb import get_graph_db
 from nti.analytics_graphdb.utils.views import populate_graph_db
 
 def _process_args(args):
-	if args.site:
-		set_site(args.site)
-
+	set_site(args.site)
 	graph = get_graph_db()
 	analytics = get_analytics_db()
-	count = populate_graph_db(graph, analytics)
+	count = populate_graph_db(graph, analytics, args.start, args.end)
 	logger.info('%s count graph job(s) created', count)
 
 def main():
@@ -41,6 +39,14 @@ def main():
 							dest='site',
 							help="Application SITE.")
 
+	arg_parser.add_argument('-t', '--start',
+							dest='start',
+							help="Starte date.")
+	
+	arg_parser.add_argument('-e', '--end',
+							dest='end',
+							help="End date.")
+	
 	args = arg_parser.parse_args()
 	env_dir = os.getenv('DATASERVER_DIR')
 	if not env_dir or not os.path.exists(env_dir) and not os.path.isdir(env_dir):
