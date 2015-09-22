@@ -46,6 +46,8 @@ from nti.graphdb.common import get_ntiid
 
 from nti.externalization.oids import to_external_ntiid_oid
 
+from nti.ntiids.ntiids import find_object_with_ntiid
+
 from ..resources import add_view_relationship
 
 from . import get_user
@@ -65,7 +67,18 @@ def to_datetime(value, default=None):
 			value = datetime.fromordinal(value.toordinal())
 	return value
 
+def get_object(oid):
+	if isinstance(oid, (int, long)): 
+		intids = component.getUtility(IIntIds)
+		result = intids.queryObject(oid)
+	elif isinstance(oid, six.string_types):
+		result = find_object_with_ntiid(oid)
+	else:
+		result = None
+	return result
+
 def blog_viewed_data(db, start=None, end=None):
+	return ()
 	start = to_datetime(start, 0)
 	end = to_datetime(end, int(time.time()))
 	query = db.session.query(BlogsViewed.session_id.label('session_id'),
@@ -142,7 +155,7 @@ def profile_viewed_data(db, start=None, end=None):
 		users_alias = aliased(Users, name='users_alias')
 		query = db.session.query(table.session_id.label('session_id'),
 								 Users.username.label('username'), 
-								 users_alias.username.label('target_username'),
+								 users_alias.user_ds_id.label('ds_intid'),
 								 table.time_length.label('duration'),
 								 table.context_path.label('context_path'),
 								 table.timestamp.label('timestamp'),
@@ -167,8 +180,7 @@ def process_view_event(db, sessionId, username, oid, params):
 		return
 	
 	if isinstance(oid, (int, long)): 
-		intids = component.getUtility(IIntIds)
-		obj = intids.queryObject(oid)
+		obj = get_object(oid)
 		if obj is not None:
 			oid = get_ntiid(obj) or to_external_ntiid_oid(obj)
 		else:
@@ -190,16 +202,18 @@ def process_view_event(db, sessionId, username, oid, params):
 	queue = get_job_queue()
 	job = create_job(add_view_relationship, db=db, username=user.username,
 					 oid=oid, params=params)
-	queue.put(job)
+	queue.put(job, use_transactions=False)
 	return True
 			
 def populate_graph_db(gdb, analytics, start=None, end=None):
 	result = 0
 	
-	# blogs and topics
+	logger.info("Processing blogs and topics")
+
 	blogs_viewed = blog_viewed_data(analytics, start, end)
 	topics_views = topics_viewed_data(analytics, start, end)
 	for row in topics_views.union(blogs_viewed):
+		__traceback_info__ = row
 		sessionId, username, oid, duration = row[:4]
 		if not duration:
 			continue
@@ -212,17 +226,20 @@ def populate_graph_db(gdb, analytics, start=None, end=None):
 		if process_view_event(gdb, sessionId, username, oid, params):
 			result += 1
 			
-	# course resources
+	logger.info("Processing course resources")
+	
 	for row in course_resources_viewed_data(analytics, start, end):
+		__traceback_info__ = row
 		sessionId, username, oid, duration = row[:4]
-		intids = component.getUtility(IIntIds)
-		obj = intids.queryObject(oid)
+		obj = get_object(oid)
 		if obj is None:
 			continue
 		if not duration and not INote.providedBy(obj):
 			continue
 
-		oid = get_ntiid(obj) or to_external_ntiid_oid(obj)
+		if not isinstance(oid, six.string_types):
+			oid = get_ntiid(obj) or to_external_ntiid_oid(obj)
+
 		params = {'duration': duration or 1,
 				  'event_time':time.mktime(row[5].timetuple()) }
 		if row[4]:
@@ -230,9 +247,11 @@ def populate_graph_db(gdb, analytics, start=None, end=None):
 
 		if process_view_event(gdb, sessionId, username, oid, params):
 			result += 1
+
+	logger.info("Processing video events")
 	
-	# videos
 	for row in videos_viewed_data(analytics, start, end):
+		__traceback_info__ = row
 		sessionId, username, oid, duration = row[:4]
 		params = {'duration': duration,
 				  'event_time':time.mktime(row[8].timetuple()) }
@@ -247,8 +266,10 @@ def populate_graph_db(gdb, analytics, start=None, end=None):
 		if process_view_event(gdb, sessionId, username, oid, params):
 			result += 1
 
-	# profiles
+	logger.info("Processing profiles")
+
 	for row in profile_viewed_data(analytics, start, end):
+		__traceback_info__ = row
 		sessionId, username, oid, duration = row[:4]
 		params = {'duration': duration,
 				  'event_time':time.mktime(row[5].timetuple()) }
