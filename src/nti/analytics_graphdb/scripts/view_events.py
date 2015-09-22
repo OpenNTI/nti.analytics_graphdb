@@ -21,7 +21,7 @@ from nti.dataserver.utils.base_script import create_context
 
 from nti.graphdb import get_graph_db
 
-from nti.analytics_graphdb.utils.view_events import populate_graph_db
+from ..utils.view_events import populate_graph_db
 
 def _process_args(args):
 	set_site(args.site)
