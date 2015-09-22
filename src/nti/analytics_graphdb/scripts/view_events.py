@@ -21,7 +21,7 @@ from nti.dataserver.utils.base_script import create_context
 
 from nti.graphdb import get_graph_db
 
-from ..utils.view_events import populate_graph_db
+from nti.analytics_graphdb.utils.view_events import populate_graph_db
 
 def _process_args(args):
 	set_site(args.site)
@@ -52,9 +52,8 @@ def main():
 	if not env_dir or not os.path.exists(env_dir) and not os.path.isdir(env_dir):
 		raise IOError("Invalid dataserver environment root directory")
 
-	conf_packages = ('nti.analytics', 'nti.graphdb',
-					 'nti.analytics_graphdb', 'nti.appserver')
-	context = create_context(env_dir, with_library=False)
+	conf_packages = ('nti.appserver',)
+	context = create_context(env_dir, with_library=True)
 
 	run_with_dataserver(environment_dir=env_dir,
 						verbose=args.verbose,
