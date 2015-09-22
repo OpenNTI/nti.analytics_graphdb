@@ -198,6 +198,9 @@ def process_view_event(db, sessionId, username, oid, params):
 	if event_time:
 		params['event_time'] = event_time
 
+	if 'event_time' in params:
+		params['createdTime'] = params['event_time']
+
 	queue = get_job_queue()
 	job = create_job(add_view_relationship, db=db, username=user.username,
 					 oid=oid, params=params)
