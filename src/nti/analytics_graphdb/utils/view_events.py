@@ -17,23 +17,26 @@ import isodate
 from isodate import ISO8601Error
 
 from sqlalchemy import and_
+from sqlalchemy import func
 from sqlalchemy import between
+from sqlalchemy.orm import aliased
 
 from zope import component
 
 from zope.intid import IIntIds
 
 from nti.analytics.database.users import Users
-
+from nti.analytics.database.sessions import Sessions
 from nti.analytics.database.blogs import BlogsViewed
 from nti.analytics.database.blogs import BlogsCreated
 from nti.analytics.database.resources import Resources
 from nti.analytics.database.boards import TopicsViewed
 from nti.analytics.database.boards import TopicsCreated
 from nti.analytics.database.resource_views import VideoEvents
+from nti.analytics.database.profile_views import EntityProfileViews
 from nti.analytics.database.resource_views import CourseResourceViews
-
-from nti.analytics.database.sessions import Sessions
+from nti.analytics.database.profile_views import EntityProfileActivityViews
+from nti.analytics.database.profile_views import EntityProfileMembershipViews
 
 from nti.dataserver.interfaces import INote
 
@@ -131,6 +134,32 @@ def course_resources_viewed_data(db, start=None, end=None):
 					filter(CourseResourceViews.user_id==Users.user_id).\
 					filter(between(CourseResourceViews.timestamp, start, end)).distinct()
 	return query
+
+def profile_viewed_data(db, start=None, end=None):
+	start = to_datetime(start, 0)
+	end = to_datetime(end, int(time.time()))
+	def _process(table, type_):
+		users_alias = aliased(Users, name='users_alias')
+		query = db.session.query(table.session_id.label('session_id'),
+								 Users.username.label('username'), 
+								 users_alias.username.label('target_username'),
+								 table.time_length.label('duration'),
+								 table.context_path.label('context_path'),
+								 table.timestamp.label('timestamp'),
+								 func.concat(type_).label("type")).\
+						outerjoin((Sessions, Sessions.session_id == table.session_id)).\
+						filter(table.target_id==users_alias.user_id).\
+						filter(table.user_id==Users.user_id).\
+						filter(between(table.timestamp, start, end)).\
+						filter(and_(table.time_length is not None, 
+									table.time_length > 0)).distinct()
+		return query
+	
+	profile = _process(EntityProfileViews, 'profile')
+	activity = _process(EntityProfileActivityViews, 'activity')
+	membership = _process(EntityProfileMembershipViews, 'membership')
+	result = membership.union(activity).union(profile)
+	return result
 
 def process_view_event(db, sessionId, username, oid, params):
 	user = get_user(username) if username else None
