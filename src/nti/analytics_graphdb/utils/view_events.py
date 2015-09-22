@@ -78,7 +78,6 @@ def get_object(oid):
 	return result
 
 def blog_viewed_data(db, start=None, end=None):
-	return ()
 	start = to_datetime(start, 0)
 	end = to_datetime(end, int(time.time()))
 	query = db.session.query(BlogsViewed.session_id.label('session_id'),
