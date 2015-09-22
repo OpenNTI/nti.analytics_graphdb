@@ -155,9 +155,9 @@ def profile_viewed_data(db, start=None, end=None):
 									table.time_length > 0)).distinct()
 		return query
 	
-	profile = _process(EntityProfileViews, 'profile')
-	activity = _process(EntityProfileActivityViews, 'activity')
-	membership = _process(EntityProfileMembershipViews, 'membership')
+	profile = _process(EntityProfileViews, 'Profile')
+	activity = _process(EntityProfileActivityViews, 'Activity')
+	membership = _process(EntityProfileMembershipViews, 'Membership')
 	result = membership.union(activity).union(profile)
 	return result
 
@@ -235,7 +235,7 @@ def populate_graph_db(gdb, analytics, start=None, end=None):
 	for row in videos_viewed_data(analytics, start, end):
 		sessionId, username, oid, duration = row[:4]
 		params = {'duration': duration,
-				  'event_time':time.mktime(row[5].timetuple()) }
+				  'event_time':time.mktime(row[8].timetuple()) }
 		if row[4]:
 			params['context_path'] = row[4]
 		if row[5]:
@@ -243,6 +243,19 @@ def populate_graph_db(gdb, analytics, start=None, end=None):
 		if row[6]:
 			params['video_end_time'] = row[6]
 		params['with_transcript'] = row[7] or False
+		
+		if process_view_event(gdb, sessionId, username, oid, params):
+			result += 1
+
+	# profiles
+	for row in profile_viewed_data(analytics, start, end):
+		sessionId, username, oid, duration = row[:4]
+		params = {'duration': duration,
+				  'event_time':time.mktime(row[5].timetuple()) }
+		if row[4]:
+			params['context_path'] = row[4]
+		if row[6]:
+			params['profile_view_type'] = row[6]
 		
 		if process_view_event(gdb, sessionId, username, oid, params):
 			result += 1
