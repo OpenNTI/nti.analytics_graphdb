@@ -7,6 +7,9 @@ entry_points = {
 	'z3c.autoinclude.plugin': [
 		'target = nti.analytics_graphdb',
 	],
+	'console_scripts': [
+		"nti_analytics_graphdb_view_events = nti.analytics_graphdb.scripts.view_events:main",
+	]
 }
 
 setup(
