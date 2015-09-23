@@ -210,7 +210,7 @@ def process_view_event(db, sessionId, username, oid, params):
 def populate_graph_db(gdb, analytics, start=None, end=None):
 	result = 0
 	
-	logger.info("Processing blogs and topics")
+	logger.info("Populating view events")
 
 	blogs_viewed = blog_viewed_data(analytics, start, end)
 	topics_views = topics_viewed_data(analytics, start, end)
@@ -227,9 +227,9 @@ def populate_graph_db(gdb, analytics, start=None, end=None):
 
 		if process_view_event(gdb, sessionId, username, oid, params):
 			result += 1
-			
-	logger.info("Processing course resources")
+	logger.info("%s blog and topic event(s) processed", result)
 	
+	count = 0
 	for row in course_resources_viewed_data(analytics, start, end):
 		__traceback_info__ = row
 		sessionId, username, oid, duration = row[:4]
@@ -248,10 +248,12 @@ def populate_graph_db(gdb, analytics, start=None, end=None):
 			params['context_path'] = row[4]
 
 		if process_view_event(gdb, sessionId, username, oid, params):
-			result += 1
+			count += 1
 
-	logger.info("Processing video events")
+	result += count
+	logger.info("%s course resource view event(s) processed", count)
 	
+	count = 0
 	for row in videos_viewed_data(analytics, start, end):
 		__traceback_info__ = row
 		sessionId, username, oid, duration = row[:4]
@@ -266,10 +268,12 @@ def populate_graph_db(gdb, analytics, start=None, end=None):
 		params['with_transcript'] = row[7] or False
 		
 		if process_view_event(gdb, sessionId, username, oid, params):
-			result += 1
+			count += 1
+			
+	result += count
+	logger.info("%s video view event(s) processed", count)
 
-	logger.info("Processing profiles")
-
+	count = 0
 	for row in profile_viewed_data(analytics, start, end):
 		__traceback_info__ = row
 		sessionId, username, oid, duration = row[:4]
@@ -281,6 +285,9 @@ def populate_graph_db(gdb, analytics, start=None, end=None):
 			params['profile_view_type'] = row[6]
 		
 		if process_view_event(gdb, sessionId, username, oid, params):
-			result += 1
-
+			count += 1
+	
+	result += count
+	logger.info("%s profile view event(s) processed", count)
+		
 	return result
