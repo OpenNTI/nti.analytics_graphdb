@@ -9,7 +9,8 @@ __docformat__ = "restructuredtext en"
 
 logger = __import__('logging').getLogger(__name__)
 
-from zope.security.management import queryInteraction
+from zope.security.interfaces import NoInteraction
+from zope.security.management import getInteraction
 
 from geoip import geolite2
 
@@ -21,12 +22,10 @@ from nti.dataserver.users import User
 from nti.dataserver.interfaces import IUser
 
 def get_current_username():
-	interaction = queryInteraction()
-	participations = list(getattr(interaction, 'participations', None) or ())
-	participation = participations[0] if participations else None
-	principal = getattr(participation, 'principal', None)
-	result = principal.id if principal is not None else None
-	return result
+	try:
+		return getInteraction().participations[0].principal.id
+	except (NoInteraction, IndexError, AttributeError):
+		return None
 
 def get_user(user=None):
 	user = get_current_username() if user is None else user
