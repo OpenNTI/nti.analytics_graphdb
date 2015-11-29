@@ -14,7 +14,6 @@ from zope.security.management import getInteraction
 
 from geoip import geolite2
 
-from nti.analytics.identifier import SessionId
 from nti.analytics.sessions import get_nti_session_id
 from nti.analytics.database.sessions import get_session_by_id
 
@@ -41,9 +40,8 @@ def get_latlong_by_ip(ip_addr=None):
 		return result
 	return None
 
-def get_latlong(nti_session=None):
-	nti_session = get_nti_session_id() if nti_session is None else nti_session
-	sid = SessionId.get_id(nti_session)
+def get_latlong(session_id=None):
+	sid = get_nti_session_id() if session_id is None else session_id
 	session = get_session_by_id(sid) if sid else None
 	ip_addr = getattr(session, 'ip_addr', None)
 	result = get_latlong_by_ip(ip_addr)
